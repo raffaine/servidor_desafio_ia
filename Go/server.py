@@ -1,4 +1,5 @@
-﻿import zmq
+﻿#!/usr/bin/env python3
+import zmq
 
 port = 5555
 
@@ -25,7 +26,7 @@ class GoTable:
         return (row < BOARD_SIZE and col < BOARD_SIZE and row >= 0 and col >= 0)
 
     def move(self, player, row, col):
-        if (not self._is_bound(row,col) or self._get(row,col) <> EMPTY):
+        if (not self._is_bound(row,col) or self._get(row,col) != EMPTY):
             return False
 
         self._set(row, col, player)
@@ -46,7 +47,7 @@ def strip_message(msg):
         return (False,"Invalid Message")
 
     who = arr[0]
-    if who <> WHITE and who <> BLACK:
+    if who != WHITE and who != BLACK:
         return (False,"Invalid Player")
 
     try:
