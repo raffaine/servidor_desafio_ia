@@ -1,4 +1,4 @@
-﻿
+
 class GoTable:
     EMPTY = ' '
     BLACK = 'B'

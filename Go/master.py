@@ -1,4 +1,6 @@
-﻿import zmq
+#!/usr/bin/env python3
+
+import zmq
 import threading
 
 def server(id):
