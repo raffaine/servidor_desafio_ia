@@ -14,6 +14,9 @@ action_server.bind("tcp://127.0.0.1:%d"%port)
 status_publisher = ctx.socket(zmq.PUB)
 status_publisher.bind("tcp://127.0.0.1:%d"%(port+1))
 
+poller = zmq.Poller()
+poller.register(action_server, zmq.POLLIN)
+
 table = GoTable()
 players = dict([(GoTable.BLACK,'*'),(GoTable.WHITE,'*')])
 
@@ -21,11 +24,11 @@ while len(players) > 0:
     print('trying') 
     status_publisher.send_string('AVAILABLE %s'%(' '.join(players.keys())))
 
-    try:
-        msg = action_server.recv_string(flags=zmq.NOBLOCK);
-    except zmq.error.Again:
-        time.sleep(1)
+    socks = poller.poll(1000)
+    if not len(socks):
         continue
+
+    msg = action_server.recv_string()
 
     print('received:',msg)
     if msg.startswith('SUBSCRIBE'):
