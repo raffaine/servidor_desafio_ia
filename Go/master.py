@@ -2,6 +2,7 @@
 
 import zmq
 import threading
+import time
 
 def server(id):
     ctx = zmq.Context.instance()
@@ -31,32 +32,73 @@ def client(id, cid):
         print(msg)
 
 
+def pserver(id):
+    ctx = zmq.Context.instance()
+    skt = ctx.socket(zmq.PUB)
+    skey = bytes('%d'%id,encoding='utf-8')
+    skt.connect('inproc://fwdrcv')    
+    
+    time.sleep(2)
+    print("server %d started"%id)
+    for i in range(5):
+        skt.send_multipart([skey,bytes('msg %d'%i,
+                                       encoding='utf-8')])
 
-ctx = zmq.Context.instance()
-fe = ctx.socket(zmq.ROUTER)
-fe.bind('inproc://router_fe')
-be = ctx.socket(zmq.ROUTER)
-be.bind('inproc://router_be')
+def pclient(id):
+    ctx = zmq.Context.instance()
+    skt = ctx.socket(zmq.SUB)
+    skey = bytes('%d'%id,encoding='utf-8')
 
-for i in range(3):
-    threading.Thread(target=server,args=(i,)).start()
-    threading.Thread(target=client,args=(i,i*10,)).start()
+    skt.connect('tcp://127.0.0.1:6000')    
+    skt.setsockopt(zmq.SUBSCRIBE,skey)
 
-poller = zmq.Poller()
-poller.register(fe, zmq.POLLIN)
-poller.register(be, zmq.POLLIN)
+    print("client for %d started"%id)
+    for i in range(5):
+        msg = skt.recv_multipart()
+        print("%d received:"%id, msg)
+        
+def forwarder():
+    ctx = zmq.Context.instance()
+    rcv = ctx.socket(zmq.SUB)
+    rcv.bind('inproc://fwdrcv')
+    rcv.setsockopt(zmq.SUBSCRIBE,b'')
 
-print("broker started")
+    snd = ctx.socket(zmq.PUB)
+    snd.bind('tcp://127.0.0.1:6000')
 
-while threading.active_count() > 1:
-    socks = dict(poller.poll(100))
+    zmq.device(zmq.FORWARDER,rcv,snd)
 
-    if socks.get(fe) == zmq.POLLIN:
-        msg = fe.recv_multipart()
-        msg[0],msg[2] = msg[2],msg[0]
-        be.send_multipart(msg)
+for i in range(2):
+    threading.Thread(target=pclient,args=(i,)).start()
+    threading.Thread(target=pserver,args=(i,)).start()
 
-    if socks.get(be) == zmq.POLLIN:
-        msg = be.recv_multipart()
-        msg[0],msg[2] = msg[2],msg[0]
-        fe.send_multipart(msg)
+forwarder()
+
+#ctx = zmq.Context.instance()
+#fe = ctx.socket(zmq.ROUTER)
+#fe.bind('inproc://router_fe')
+#be = ctx.socket(zmq.ROUTER)
+#be.bind('inproc://router_be')
+
+#for i in range(3):
+#    threading.Thread(target=server,args=(i,)).start()
+#    threading.Thread(target=client,args=(i,i*10,)).start()
+
+#poller = zmq.Poller()
+#poller.register(fe, zmq.POLLIN)
+#poller.register(be, zmq.POLLIN)
+
+#print("broker started")
+
+#while threading.active_count() > 1:
+#    socks = dict(poller.poll(100))
+
+#    if socks.get(fe) == zmq.POLLIN:
+#        msg = fe.recv_multipart()
+#        msg[0],msg[2] = msg[2],msg[0]
+#        be.send_multipart(msg)
+
+#    if socks.get(be) == zmq.POLLIN:
+#        msg = be.recv_multipart()
+#        msg[0],msg[2] = msg[2],msg[0]
+#        fe.send_multipart(msg)
