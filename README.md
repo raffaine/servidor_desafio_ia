@@ -36,6 +36,6 @@ PROTOCOLO:
 - começo de mão (recv SUB): GETHAND $DEALER (DEALER é o nome do jogador que será o DEALER nesta mão)
 - ação começo de mão (send REQ): GETHAND $NOME (NOME é quem quer receber a mão)
 - resposta a ação no começo de mão (recv REQ): $MÃO/ERROR (HAND é uma string com 2 cartas representando a mão)
-- ações: $NOME $AÇÃO [$VALOR] (NOME do jogador, AÇÃO desejada dentre [CALL, CHECK, FOLD, BET, ALLIN] e VALOR é opcional sendo usado em caso de ação ser BET)
+- ações: $NOME $AÇÃO \[$VALOR\] (NOME do jogador, AÇÃO desejada dentre \[CALL, CHECK, FOLD, BET, ALLIN\] e VALOR é opcional sendo usado em caso de ação ser BET)
 - resposta ACK/ERROR %s
 	
