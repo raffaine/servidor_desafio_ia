@@ -129,38 +129,102 @@ class Player:
     def set_hand(self, hand):
         self.hand = hand
 
+    def bet(self, ammount):
+        self.money -= ammount
+        return ammount
+
+    def receive(self, ammount):
+        self.money += ammount
+
 class TexasGame:
-    def __init__(self, player_list, start_money, start_blind = 10, min_bet = 10):
+    def __init__(self, players_list, start_money, start_blind = 10, min_bet = 10):
         self.players = [Player(p,start_money) for p in players_list]
         self.deck = [v+n for v in ranks for n in suites]
-        self.blind = start_blind
+        self.blindval = start_blind
         self.min_bet = min_bet
         self.table = []
         self.pot = [] # Pot is a list to handle hard bet situations
-        self.dealer = 0
+        self.dealer = -1
+        self.turn = 0
 
+    """Start a new hand"""
     def starthand(self):
-        shuffle(deck)
+        shuffle(self.deck)
         # Prepare Player's Hands
         start, stop = 0, 2
         for player in self.players:
-            player.setHand(self.deck[start:stop])
+            player.set_hand(self.deck[start:stop])
             start, stop = stop, stop + 2
 
         # Prepare Table's Cards
         self.table = self.deck[start:start+5]
         # Set the initial pot
         self.pot = [(self.players,0)]
-
-    def endhand(self):
-        #TODO: distribute the money in the pot
-        #TODO: Remove people with no money from the game
-
         # Set the new dealer
         self.dealer = (self.dealer+1)%len(self.players)
+        # Set initial turn
+        self.turn = (self.dealer+3)%len(self.players)
 
-    def get_dealer(self):
-        return self.players[self.dealer].name
+    """Calculate and collect blind bets"""
+    def collect_blinds(self):
+        # Return list of pairs (player, bet)
+        big = self.players[(self.dealer+1)%len(self.players)]
+        small = self.players[(self.dealer+1)%len(self.players)]
+
+        # Calculate blinds (TODO: Should use only int division?)
+        bet = self.blindval
+        ret = [(big.name,big.bet(bet)),
+               (small.name,small.bet(bet/2))]
+
+        # Increment pot
+        self.pot[-1][1] += sum(v for _,v in ret) 
+
+        return ret
+
+    """Finish the round, distribute money and remove players
+        Returns list of removed players"""
+    def endhand(self):
+        #TODO: Find the winner
+        # Start creating an array of hands
+        hands = [p.hand + self.table for p in self.pot[0][0]]
+        # Use poker() function to find the winner/ties
+        # Split the main and side pots
+        #TODO: distribute the money in the pot
+        # Reference http://poker.stackexchange.com/questions/462/how-are-side-pots-built
+        self.pot = []
+
+        # Remove people with not enough money from the game
+        removed = [p.name for p in self.players if p.money < self.blindval]
+        self.players = [p for p in self.players if p.name not in removed]
+
+        return removed
+
+    """Return given player hand"""
+    def get_hand(self, player):
+        return next((x.hand for x in self.players if x.name == player), None)
+        
+    """Return a tuple with player name and available options"""
+    def get_turn(self):
+        # Player can always fold
+        actions = ['FOLD']
+        player = self.players[self.turn]
+
+        #remember: if no raise, big blind (or last raise) can check
+        #remember: small blind have already paid some ammount
+
+        #calculate if player can call/raise, or it would be allin
+        
+        #TODO TODO TODO
+                
+        return (player.name, actions)
+
+    """Check to see if this is a game over"""
+    def is_gameover(self):
+        return len(self.players) == 1
+
+    """Check to see if this is the end of a hand"""
+    def is_handover(self):
+        return len(self.pot) == 0
 
 
 # If user call as script, run the tests
