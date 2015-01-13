@@ -44,7 +44,7 @@ while len(players) > 0:
     action_server.send_string(result)
 
     
-status_publisher.send_string("TURN %s TABLE #%s"%table.get_state())
+status_publisher.send_string("TURN %s TABLE %s"%table.get_state())
 
 while True:
     msg = action_server.recv_string();
@@ -61,7 +61,7 @@ while True:
                 break
 
             #TODO Publicar mais info, tipo o placar?
-            status_publisher.send_string("TURN %s TABLE #%s"%table.get_state())
+            status_publisher.send_string("TURN %s TABLE %s"%table.get_state())
             continue
         else:
             result = "Invalid Move"

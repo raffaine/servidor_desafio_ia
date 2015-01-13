@@ -1,13 +1,13 @@
 
 class GoTable:
-    EMPTY = ' '
+    EMPTY = '.'
     BLACK = 'B'
     WHITE = 'W'
 
     def __init__(self, size = 9):
         self._size = size
-        self._board = [' ' for i in range(self._size) 
-                           for j in range(self._size)]
+        self._board = [GoTable.EMPTY for i in range(self._size) 
+                                     for j in range(self._size)]
 
         self._score = dict([(GoTable.BLACK,0),(GoTable.WHITE,0)])
         self.game_over = False
@@ -35,7 +35,7 @@ class GoTable:
         return True
         
     def get_state(self):
-        return (self.active_player, self.print_board())
+        return (self.active_player, ''.join(self._board))
 
     def print_board(self):
         return '\n'.join([''.join(self._board[i*self._size:(i+1)*self._size]) 
