@@ -21,12 +21,11 @@ if msg.startswith('AVAILABLE'):
 while True:
     msg = sub.recv_string()
     if msg.startswith('TURN'):
-        msg = msg.split('#')
-        table = msg[1].replace('\n','')
-        msg = msg[0].split()
+        msg = msg.split()
+        table = msg[3]
         turn = msg[1]
         if turn == color:
-            available = [(i//9,i%9) for (i,c) in enumerate(table) if c == ' ']
+            available = [(i//9,i%9) for (i,c) in enumerate(table) if c == '.']
             print(table,'and',available)
             if len(available) == 0:
                 break
