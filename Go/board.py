@@ -1,4 +1,4 @@
-
+﻿
 class GoTable:
     EMPTY = '.'
     BLACK = 'B'
@@ -32,6 +32,11 @@ class GoTable:
         self._set(row, col, player)
         self.active_player = GoTable.BLACK if (self.active_player == GoTable.WHITE) \
                                            else GoTable.WHITE
+
+        # Verifica se o jogo acabou (v0.1 pois estou certo que está errado)
+        if self.EMPTY not in self._board:
+            self.game_over = True
+
         return True
         
     def get_state(self):
