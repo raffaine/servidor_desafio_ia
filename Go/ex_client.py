@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 
 import zmq
 
@@ -36,3 +36,6 @@ while True:
             if (msg != "ACK"):
                 print("joga de novo!") #erro!
                 break
+    elif msg.startswith('GAMEOVER'):
+        print(msg)
+        break
