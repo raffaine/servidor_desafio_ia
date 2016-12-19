@@ -29,13 +29,13 @@ def subscribe(name):
     #TODO As I use spaces to separate names lists, it would be a good idea to remove then
     if name != '' and player_list.count(name) == 0:
        player_list.append(name)
-       return 'ACK'    
+       return 'ACK'
     else:
        return 'ERROR Invalid Argument'  
 
 """Game Logic: GetHand - Used to get a players hand"""
 def gethand(name):
-    return hand or 'ERROR Invalid Player'
+    return table.get_hand(name) or 'ERROR Invalid Player'
 
 
 ### ZMQ Initialization ###
@@ -53,7 +53,7 @@ poller.register(action_server, zmq.POLLIN)
 #This is used to hold all possible options for handling
 #   protocol messages
 handlers = {
-    'SUBSCRIBE': subscribe(name)       
+    'SUBSCRIBE': subscribe
 }
 
 
@@ -61,14 +61,13 @@ handlers = {
 while len(player_list) < max_players:
     if not pool_req(handlers):
         status_publisher.send_string('AVAILABLE')
- 
 
 # Game ready to start, establish table and handle main protocol
 table = TexasGame(player_list, start_money)
 
 # Show players table position and general info
-status_publisher('START %d %d %s'%(start_money, table.min_bet, 
-                                   ' '.join([s.name for s in table.players])))
+status_publisher.send_string('START %d %d %s'%(start_money, table.min_bet, \
+                 ' '.join([s.name for s in table.players])))
 
 # Reajust handlers
 handlers.pop('SUBSCRIBE', None)
@@ -94,6 +93,5 @@ while not table.is_gameover():
     # Wait a few for some message and do it all again
     while pool_req(handlers, 500): pass
 
-  
 
     
