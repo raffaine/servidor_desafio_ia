@@ -1,1 +1,11 @@
 *.pyc
+*.log
+*.exe
+*.suo
+*.sdf
+*.opensdf
+Thumbs.db
+Debug/
+bin/
+obj/
+.vscode/
