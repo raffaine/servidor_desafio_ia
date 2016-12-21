@@ -7,24 +7,30 @@ class Server:
         self.usr = usr
 
         ### ZMQ Initialization ###
-        self.ctx = zmq.Context()
+        ctx = zmq.Context()
 
         self.pubsrv = ctx.socket(zmq.SUB)
         self.pubsrv.connect('tcp://127.0.0.1:5556')
-        self.pubsrv.setsockopt_string(zmq.SUBSCRIBE,'')
+        self.pubsrv.setsockopt_string(zmq.SUBSCRIBE, '')
 
         self.srv = ctx.socket(zmq.REQ)
-        self.srv.bind("tcp://127.0.0.1:5555")
-    
-    def list_table(self):
-        pass
+        self.srv.connect("tcp://127.0.0.1:5555")
 
-    def create_table(self):
-        pass
+    def list_table(self):
+        self.srv.send_string("LIST")
+        return self.srv.recv_string()
+
+    def create_table(self, name):
+        self.srv.send_string("TABLE %s"%(name))
+        return self.srv.recv_string()
 
     def join_table(self, name):
-        self.srv.send_string("SUBSCRIBE %s"%(self.usr))
-        self.srv.recv_string()
+        self.srv.send_string("JOIN %s %s"%(self.usr, name))
+        return self.srv.recv_string()
+    
+    def get_hand(self):
+        self.srv.send_string("GETHAND %s"%(self.usr))
+        return self.srv.recv_string()
 
 if __name__ == "__main__":
     usr = ''

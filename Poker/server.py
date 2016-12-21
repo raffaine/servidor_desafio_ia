@@ -6,11 +6,21 @@ from rules import *
 
 port = 5555
 start_money = 100
-max_players = 4
-player_list = []
 
-"""Pool Request handler, just to keep it of with game logic"""
+tables = dict()
+players = dict()
+
+flatten = lambda l: [item for sublist in l for item in sublist]
+
+class TableEntry():
+    def __init__(self, min_players, max_players):
+        self.game = None
+        self.waiting = []
+        self.min_players = min_players
+        self.max_players = max_players
+
 def pool_req(handler_map, timeout=1000):
+    """Pool Request handler, just to keep it of with game logic"""
     socks = poller.poll(timeout)
     if not len(socks):
         return False
@@ -18,25 +28,87 @@ def pool_req(handler_map, timeout=1000):
     msg = action_server.recv_string()
     print('received: %s'%msg)
 
-    title, _, content = msg.partition(' ')
-    cmd = handler_map.get(title, lambda _: 'Error: Invalid Message')
+    msg = msg.split(' ')
+    cmd = handler_map.get(msg[0], lambda _: 'ERROR: Invalid Message')
+    try:
+        action_server.send_string(cmd(*msg[1:]))
+    except TypeError:
+        action_server.send_string('ERROR Invalid Call')
 
-    action_server.send_string(cmd(content))
     return True
 
-"""Game Logic: Subscribe - Used to add new players to the game"""
-def subscribe(name):
-    #TODO As I use spaces to separate names lists, it would be a good idea to remove then
-    if name != '' and player_list.count(name) == 0:
-       player_list.append(name)
-       return 'ACK'
+def create_table(table_name, min_players='2', max_players='4'):
+    """Manager Logic: TABLE - Creates a new table with the given parameters"""
+    if table_name in tables:
+        return 'ERROR Table already exists'
+
+    try:
+        tables[table_name] = TableEntry(int(min_players), int(max_players))
+    except ValueError:
+        return 'ERROR Invalid parameters for table size'
+
+    return 'ACK'
+
+def list_tables():
+    """Manager Logic: LIST - List all available tables"""
+    return str([n for n in tables.keys()])
+
+def join_table(usr_name, table_name):
+    """Game Logic: JOIN - Used to add new players to an existing table"""
+    if usr_name in players or usr_name in flatten(map(lambda t: t.waiting, iter(tables.values()))):
+        return 'ERROR Player already in table'
+
+    tbl = tables.get(table_name, None)
+    #TODO logic for joining table already open
+    if tbl and not tbl.game and usr_name not in tbl.waiting:
+        tbl.waiting.append(usr_name)
+        if len(tbl.waiting) == tbl.min_players:
+            # Game ready to start, establish table and handle main protocol
+            tbl.game = TexasGame(tbl.waiting, start_money)
+
+            # Quick access to game from player's name
+            while tbl.waiting:
+                players[tbl.waiting.pop()] = tbl.game
+
+            # Show players table position and general info
+            status_publisher.send_string('%s START %d %d %s'%(table_name, start_money, \
+                            tbl.game.min_bet, ' '.join([s.name for s in tbl.game.players])))
+
+        return 'ACK'
     else:
-       return 'ERROR Invalid Argument'  
+        return 'ERROR Invalid Argument'
 
-"""Game Logic: GetHand - Used to get a players hand"""
-def gethand(name):
-    return table.get_hand(name) or 'ERROR Invalid Player'
+def leave_table(usr_name, table_name):
+    """Game Logic: LEAVE - Used to remove players from a waiting table"""
+    if usr_name in players:
+        return 'ERROR Cannot leave running table ... yet'
 
+    tbl = tables.get(table_name, None)
+    if not tbl:
+        return 'ERROR Table does not exist'
+
+    if usr_name in tbl.waiting:
+        tbl.waiting.remove(usr_name)
+    else:
+        return 'ERROR Player not in table'
+
+    return 'ACK'
+
+def get_hand(usr_name):
+    """Game Logic: GetHand - Used to get a players hand"""
+    tbl = players.get(usr_name, None)
+    if not tbl:
+        return 'ERROR Invalid Player'
+
+    return str(tbl.get_hand(usr_name) or 'ERROR Invalid Player')
+
+def get_turn(table_name):
+    """Game Logic: GetTurn - Used to get a table current turn"""
+    tbl = tables.get(table_name, None)
+    if not tbl:
+        return 'ERROR Invalid Table'
+
+    return '%s %s'%tbl.game.get_turn()
 
 ### ZMQ Initialization ###
 ctx = zmq.Context()
@@ -53,45 +125,35 @@ poller.register(action_server, zmq.POLLIN)
 #This is used to hold all possible options for handling
 #   protocol messages
 handlers = {
-    'SUBSCRIBE': subscribe
+    'JOIN': join_table,
+    'LEAVE': leave_table,
+    'TABLE': create_table,
+    'LIST': list_tables,
+    'GETHAND': get_hand,
+    'GETTURN': get_turn
 }
 
-
-# Waiting for players to sync and join table
-while len(player_list) < max_players:
-    if not pool_req(handlers):
-        status_publisher.send_string('AVAILABLE')
-
-# Game ready to start, establish table and handle main protocol
-table = TexasGame(player_list, start_money)
-
-# Show players table position and general info
-status_publisher.send_string('START %d %d %s'%(start_money, table.min_bet, \
-                 ' '.join([s.name for s in table.players])))
-
-# Reajust handlers
-handlers.pop('SUBSCRIBE', None)
-handlers['GETHAND'] = gethand
-
 # Main Game Loop
-while not table.is_gameover():
-    # When this is signalized, start a new hand
-    if table.is_handover():
-        table.starthand()
-        status_publisher.send_string('GETHANDS')
+try:
+    while True:
+        # Wait a few for some message and do it all again
+        while pool_req(handlers, 500):
+            pass
 
-        # Gives a few secs for players to get their hands
-        while pool_req(handlers, 2000): pass
+        # Do some table related logic
+        for name, table in filter(lambda entry: entry[1].game, iter(tables.items())):
+            # When this is signalized, start a new hand
+            if table.game.is_handover():
+                table.game.starthand()
+                status_publisher.send_string('%s GETHANDS'%(name))
 
-        #TODO Inform Big and Small Blinds bets
-        for p,v in table.collect_blinds():
-            status_publisher.send_string('BLIND %s %d'%(p,v))
+                # Give a few secs for players to get their hands
+                while pool_req(handlers, 2000): pass
 
-    # Inform Turn
-    status_publisher.send_string('TURN %s %s'%table.get_turn())
+                # Inform Big and Small Blinds bets
+                for p, v in table.game.collect_blinds():
+                    status_publisher.send_string('%s BLIND %s %d'%(name, p, v))
 
-    # Wait a few for some message and do it all again
-    while pool_req(handlers, 500): pass
+except KeyboardInterrupt:
+    status_publisher.send_string('GAMEOVER')
 
-
-    
