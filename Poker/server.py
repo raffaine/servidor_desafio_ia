@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import json
 import zmq
 import time
 from rules import *
@@ -51,7 +52,7 @@ def create_table(table_name, min_players='2', max_players='4'):
 
 def list_tables():
     """Manager Logic: LIST - List all available tables"""
-    return str([n for n in tables.keys()])
+    return json.dumps([n for n in tables.keys()])
 
 def join_table(usr_name, table_name):
     """Game Logic: JOIN - Used to add new players to an existing table"""
@@ -148,7 +149,8 @@ try:
                 status_publisher.send_string('%s GETHANDS'%(name))
 
                 # Give a few secs for players to get their hands
-                while pool_req(handlers, 2000): pass
+                while pool_req(handlers, 2000):
+                    pass
 
                 # Inform Big and Small Blinds bets
                 for p, v in table.game.collect_blinds():
