@@ -6,7 +6,7 @@ import uuid
 class Server:
 
     def __init__(self, usr):
-        self.usr = usr        
+        self.usr = usr
         self.table = ''
 
         ### ZMQ Initialization ###
@@ -35,8 +35,8 @@ class Server:
         self.srv.send_string("GETHAND %s"%(self.usr))
         return self.srv.recv_string()
 
-    def get_turn(self, table):
-        self.srv.send_string("GETTURN %s"%(table))
+    def get_turn(self):
+        self.srv.send_string("GETTURN %s"%(self.table))
         return self.srv.recv_string()
 
     def resubscribe(self, table):
@@ -65,6 +65,47 @@ class Server:
                 self.resubscribe('')
                 return False
 
+    def poll_sub(self, handler):
+        while(self.pubsrv.poll(1)):
+            _, _, data = (self.pubsrv.recv_string()).partition(' ')
+            handler(data)
+
+class Game:
+    """ Keeps track of game information """
+    def __init__(self, server):
+        self.money = 0
+        self.hand = []
+        self.players = []
+        self.round = 0
+        self.turn = 0
+        self.table = []
+        self.blind = 0
+        self.is_over = False
+        self.handlers = {k[len('H_'):]:v for k, v in Game.__dict__.items() if k.startswith('H_')}
+        self.server = server
+
+    def handle_msg(self, content):
+        print("Handling ", content)
+        content = content.split(' ')
+        cmd = self.handlers.get(content[0], lambda _: print("Invalid message"))
+        cmd(self, *content[1:])
+
+    def H_START(self, start_money, blind_val, *players):
+        self.money = int(start_money)
+        self.blind = int(blind_val)
+        self.players = list(players)
+
+    def H_GETHANDS(self):
+        self.hand = json.loads(self.server.get_hand())
+
+    def H_BLIND(self, player, value):
+        if player == self.server.usr:
+            self.money -= int(value)
+
+    def H_GAMEOVER(self):
+        self.is_over = True
+
+
 
 if __name__ == "__main__":
     usr = ''
@@ -74,4 +115,7 @@ if __name__ == "__main__":
 
     srv = Server(usr)
     srv.hunt_table()
-     
+
+    game = Game(srv)
+    while not game.is_over:
+        srv.poll_sub(game.handle_msg)

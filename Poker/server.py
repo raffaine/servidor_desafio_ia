@@ -101,7 +101,7 @@ def get_hand(usr_name):
     if not tbl:
         return 'ERROR Invalid Player'
 
-    return str(tbl.get_hand(usr_name) or 'ERROR Invalid Player')
+    return json.dumps(tbl.get_hand(usr_name))
 
 def get_turn(table_name):
     """Game Logic: GetTurn - Used to get a table current turn"""
@@ -157,5 +157,6 @@ try:
                     status_publisher.send_string('%s BLIND %s %d'%(name, p, v))
 
 except KeyboardInterrupt:
-    status_publisher.send_string('GAMEOVER')
+    for table in tables:
+        status_publisher.send_string('%s GAMEOVER'%(table))
 
