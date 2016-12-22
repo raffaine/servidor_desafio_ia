@@ -85,24 +85,35 @@ class Game:
         self.server = server
 
     def handle_msg(self, content):
+        """ Invokes the handler for the message received """
         print("Handling ", content)
         content = content.split(' ')
-        cmd = self.handlers.get(content[0], lambda _: print("Invalid message"))
+        cmd = self.handlers.get(content[0], lambda *args: print("Invalid message"))
         cmd(self, *content[1:])
 
     def H_START(self, start_money, blind_val, *players):
+        """ Handles the start of a new game """
         self.money = int(start_money)
         self.blind = int(blind_val)
         self.players = list(players)
 
-    def H_GETHANDS(self):
+    def H_STARTHAND(self, start_player):
+        """ Handles the start of a new hand """
+        self.turn = self.players.index(start_player)
         self.hand = json.loads(self.server.get_hand())
 
     def H_BLIND(self, player, value):
+        """ Handles the blind bets """
         if player == self.server.usr:
             self.money -= int(value)
 
+    def H_TURN(self, player, *actions):
+        """ Handles the Turn information """
+        if player == self.server.usr:
+            pass #TODO Take some action
+
     def H_GAMEOVER(self):
+        """ Handles the end of the game """
         self.is_over = True
 
 

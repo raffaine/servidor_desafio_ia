@@ -138,7 +138,7 @@ handlers = {
 try:
     while True:
         # Wait a few for some message and do it all again
-        while pool_req(handlers, 500):
+        while pool_req(handlers, 100):
             pass
 
         # Do some table related logic
@@ -146,15 +146,16 @@ try:
             # When this is signalized, start a new hand
             if table.game.is_handover():
                 table.game.starthand()
-                status_publisher.send_string('%s GETHANDS'%(name))
+                turn = table.game.get_turn()
 
-                # Give a few secs for players to get their hands
-                while pool_req(handlers, 2000):
-                    pass
+                status_publisher.send_string('%s STARTHAND %s'%(name, turn[0]))
 
                 # Inform Big and Small Blinds bets
                 for p, v in table.game.collect_blinds():
                     status_publisher.send_string('%s BLIND %s %d'%(name, p, v))
+
+                # Inform turn
+                status_publisher.send_string('%s TURN %s %s'%(name, turn[0], turn[1]))
 
 except KeyboardInterrupt:
     for table in tables:
